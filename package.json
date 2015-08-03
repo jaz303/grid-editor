@@ -1,0 +1,32 @@
+{
+  "name": "grid-editor",
+  "version": "1.0.0",
+  "description": "A grid editor for tabular data. Minimal dependencies.",
+  "main": "index.js",
+  "dependencies": {
+    "dom-build": "^1.1.1",
+    "event-box": "^1.1.2",
+    "dom-bind": "^1.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaz303/grid-editor"
+  },
+  "keywords": [
+    "grid",
+    "editor",
+    "tabular",
+    "data",
+    "spreadsheet"
+  ],
+  "author": "Jason Frame <jason@onehackoranother.com> (http://jasonframe.co.uk)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jaz303/grid-editor/issues"
+  },
+  "homepage": "https://github.com/jaz303/grid-editor"
+}
