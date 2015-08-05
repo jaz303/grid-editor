@@ -83,7 +83,11 @@ Model.prototype.forEachRow = function(cb) {
 }
 
 Model.prototype.mapRows = function(cb) {
-	return this.data.map(cb);
+	return this.data.map(function(row, ix) {
+		return cb(row.map(function(c) {
+			return c.value;
+		}), ix);
+	});
 }
 
 Model.prototype.addRow = function(row) {
