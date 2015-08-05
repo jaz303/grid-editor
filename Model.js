@@ -1,5 +1,58 @@
 module.exports = Model;
 
+var INVALID = {};
+
+function textEditorForCell(cell, reprToValue, valueToRepr) {
+	var el = document.createElement('input');
+	el.type = 'text';
+
+	el.onchange = function() {
+		cell.value = reprToValue(this.value);
+	};
+
+	return {
+		root: el,
+		set: function(val) { el.value = valueToRepr(val); },
+		teardown: function() {
+
+		}
+	};
+}
+
+var types = {
+	'number': {
+		name: 'number',
+		defaultValue: function() { return INVALID; },
+		createEditor: function(cell) {
+			return textEditorForCell(
+				cell,
+				function(repr) {
+					var val = parseFloat(repr);
+					return isFinite(val) ? val : INVALID;
+				},
+				function(value) { 
+					return (value === INVALID) ? '' : ('' + value);
+				}
+			);
+		}
+	},
+	'string': {
+		name: 'string',
+		defaultValue: function() { return ''; },
+		createEditor: function(cell) {
+			return textEditorForCell(
+				cell,
+				function(repr) { return repr; },
+				function(value) { return value; }
+			);
+		}
+	}
+};
+
+function type(t) {
+	return (typeof t === 'string') ? types[t] : t;
+}
+
 var EventBox = require('event-box');
 var Cell = require('./Cell');
 
@@ -12,8 +65,8 @@ function Range(model, startColumn, startRow, endColumn, endRow) {
 }
 
 function Model(columnTypes, data) {
-	this.columnTypes = columnTypes;
-	this.data = data;
+	this.columnTypes = columnTypes.map(type);
+	this.data = data || [];
 	this.events = new EventBox();
 }
 
@@ -33,9 +86,9 @@ Model.prototype.mapRows = function(cb) {
 	return this.data.map(cb);
 }
 
-Model.prototype.addRow = function() {
+Model.prototype.addRow = function(row) {
 	var ix = this.height;
-	var newRow = this._createRow();
+	var newRow = row || this._createRow();
 	this.data.push(newRow);
 	this.events.emit('change:append', this.rowRange(ix, ix+1), [newRow]);
 }

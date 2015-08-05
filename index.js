@@ -6,70 +6,22 @@ var ev = require('dom-bind');
 var Model = require('./Model');
 var Cell = require('./Cell');
 
-var INVALID = {};
+function gridEditor(model, opts) {
 
-function textEditorForCell(cell, reprToValue, valueToRepr) {
-	var el = document.createElement('input');
-	el.type = 'text';
-
-	el.onchange = function() {
-		cell.value = reprToValue(this.value);
-	};
-
-	return {
-		root: el,
-		set: function(val) { el.value = valueToRepr(val); },
-		teardown: function() {
-
-		}
-	};
-}
-
-var types = {
-	'number': {
-		name: 'number',
-		defaultValue: function() { return INVALID; },
-		createEditor: function(cell) {
-			return textEditorForCell(
-				cell,
-				function(repr) {
-					var val = parseFloat(repr);
-					return isFinite(val) ? val : INVALID;
-				},
-				function(value) { 
-					return (value === INVALID) ? '' : ('' + value);
-				}
-			);
-		}
-	},
-	'string': {
-		name: 'string',
-		defaultValue: function() { return ''; },
-		createEditor: function(cell) {
-			return textEditorForCell(
-				cell,
-				function(repr) { return repr; },
-				function(value) { return value; }
-			);
-		}
+	if (!(model instanceof Model)) {
+		opts = model;
+		model = void 0;
 	}
-};
-
-function type(t) {
-	return (typeof t === 'string') ? types[t] : t;
-}
-
-function gridEditor(opts) {
 
 	var ui = D('table', D('thead!head'), D('tbody!body'));
-	var columnTypes = opts.columnTypes.map(type);
+
+	if (!model) {
+		model = new Model(opts.columnTypes);
+		_importData(model, opts.data || []);
+	}
+
 	var columnClasses = opts.columnClasses || [];
 	
-	var model = new Model(
-		columnTypes,
-		_importData(opts.data || [], columnTypes)
-	);
-
 	_appendColumnHeaders();
 	model.forEachRow(_appendRowEditor);
 
@@ -114,13 +66,15 @@ function gridEditor(opts) {
 		}
 	};
 
-	function _importData(ary, columnTypes) {
-		return ary.map(function(row) {
-			return row.map(function(value, columnIx) {
+	function _importData(model, ary) {
+		var columnTypes = model.columnTypes;
+		return ary.forEach(function(row) {
+			row = row.map(function(value, columnIx) {
 				return (value instanceof Cell)
 					? value
 					: new Cell(columnTypes[columnIx], value);
 			});
+			model.addRow(row);
 		});
 	}
 
