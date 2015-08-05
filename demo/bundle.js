@@ -1,6 +1,8 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/Users/jason/dev/projects/grid-editor/Cell.js":[function(require,module,exports){
 module.exports = Cell;
 
+var INVALID = require('./constants').INVALID;
+
 function Cell(type, initialValue) {
 	this.type = type;
 	this.value = initialValue;
@@ -11,10 +13,14 @@ Cell.prototype.createEditor = function() {
 	editor.set(this.value);
 	return editor;
 }
-},{}],"/Users/jason/dev/projects/grid-editor/Model.js":[function(require,module,exports){
+
+Cell.prototype.isValid = function() {
+	return this.value !== INVALID;
+}
+},{"./constants":"/Users/jason/dev/projects/grid-editor/constants.js"}],"/Users/jason/dev/projects/grid-editor/Model.js":[function(require,module,exports){
 module.exports = Model;
 
-var INVALID = {};
+var INVALID = require('./constants').INVALID;
 
 function textEditorForCell(cell, reprToValue, valueToRepr) {
 	var el = document.createElement('input');
@@ -78,9 +84,16 @@ function Range(model, startColumn, startRow, endColumn, endRow) {
 	this.endRow = endRow;
 }
 
-function Model(columnTypes, data) {
+function Model(columnTypes, opts) {
+	opts = opts || {};
 	this.columnTypes = columnTypes.map(type);
-	this.data = data || [];
+	if (opts.cells) {
+		this.data = opts.cells;
+	} else if (opts.data) {
+		this.data = opts.data.map(function(row) {
+			return this._castRow(row);
+		}, this);
+	}
 	this.events = new EventBox();
 }
 
@@ -92,17 +105,33 @@ Object.defineProperty(Model.prototype, 'height', {
 	get: function() { return this.data.length; }
 });
 
+Model.prototype.forEachRowValues = function(cb) {
+	this.data.forEach(function(row, ix) {
+		cb(row.map(function(cell) { return cell.value; }, ix));
+	});
+}
+
 Model.prototype.forEachRow = function(cb) {
-	this.data.forEach(cb);
+	this.data.forEach(function(row, ix) {
+		cb(row, ix);
+	});
+}
+
+Model.prototype.mapRowValues = function(cb) {
+	return this.data.map(function(row, ix) {
+		return cb(row.map(function(c) { return c.value; }), ix);
+	});
 }
 
 Model.prototype.mapRows = function(cb) {
-	return this.data.map(cb);
+	return this.data.map(function(row, ix) {
+		return cb(row, ix);
+	});
 }
 
 Model.prototype.addRow = function(row) {
 	var ix = this.height;
-	var newRow = row || this._createRow();
+	var newRow = row ? this._castRow() : this._createRow();
 	this.data.push(newRow);
 	this.events.emit('change:append', this.rowRange(ix, ix+1), [newRow]);
 }
@@ -125,7 +154,21 @@ Model.prototype._createRow = function() {
 	}
 	return row;
 }
-},{"./Cell":"/Users/jason/dev/projects/grid-editor/Cell.js","event-box":"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js"}],"/Users/jason/dev/projects/grid-editor/demo/main.js":[function(require,module,exports){
+
+Model.prototype._castRow = function(ary) {
+	return ary.map(function(item, ix) {
+		return (item instanceof Cell)
+			? item
+			: new Cell(this._typeForColumn(ix), item);
+	}, this);
+}
+
+Model.prototype._typeForColumn = function(ix) {
+	return this.columnTypes[ix];
+}
+},{"./Cell":"/Users/jason/dev/projects/grid-editor/Cell.js","./constants":"/Users/jason/dev/projects/grid-editor/constants.js","event-box":"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js"}],"/Users/jason/dev/projects/grid-editor/constants.js":[function(require,module,exports){
+exports.INVALID = {};
+},{}],"/Users/jason/dev/projects/grid-editor/demo/main.js":[function(require,module,exports){
 var gridEditor = require('..');
 
 window.init = function() {
@@ -155,7 +198,7 @@ window.init = function() {
 			'string',
 			'string'
 		],
-		serializeRow: function(cells, values) {
+		serializeRow: function(values, cells) {
 			return {
 				point: { x: values[0], y: values[1] },
 				tradeName: values[2],
@@ -201,8 +244,9 @@ function gridEditor(model, opts) {
 	var ui = D('table', D('thead!head'), D('tbody!body'));
 
 	if (!model) {
-		model = new Model(opts.columnTypes);
-		_importData(model, opts.data || []);
+		model = new Model(opts.columnTypes, {
+			data: opts.data || []
+		});
 	}
 
 	var columnClasses = opts.columnClasses || [];
@@ -239,29 +283,16 @@ function gridEditor(model, opts) {
 		addRow: function() {
 			model.addRow();
 		},
-		deleteSelectedRow: function() {
-			console.log("delete selected row");
-		},
 		'export': function() {
 			var data = model.mapRows(function(row) {
-				return opts.serializeRow(row, row.map(function(c) { return c.value; }));
+				return opts.serializeRow(row.map(function(c) {
+					return c.isValid() ? c.value : null;
+				}), row);
 			});
 			console.log(data);
 			return data;
 		}
 	};
-
-	function _importData(model, ary) {
-		var columnTypes = model.columnTypes;
-		return ary.forEach(function(row) {
-			row = row.map(function(value, columnIx) {
-				return (value instanceof Cell)
-					? value
-					: new Cell(columnTypes[columnIx], value);
-			});
-			model.addRow(row);
-		});
-	}
 
 	function _createRowEditor(row) {
 		var editors = row.map(function(cell, ix) {

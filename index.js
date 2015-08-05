@@ -16,8 +16,9 @@ function gridEditor(model, opts) {
 	var ui = D('table', D('thead!head'), D('tbody!body'));
 
 	if (!model) {
-		model = new Model(opts.columnTypes);
-		_importData(model, opts.data || []);
+		model = new Model(opts.columnTypes, {
+			data: opts.data || []
+		});
 	}
 
 	var columnClasses = opts.columnClasses || [];
@@ -54,29 +55,16 @@ function gridEditor(model, opts) {
 		addRow: function() {
 			model.addRow();
 		},
-		deleteSelectedRow: function() {
-			console.log("delete selected row");
-		},
 		'export': function() {
 			var data = model.mapRows(function(row) {
-				return opts.serializeRow(row, row.map(function(c) { return c.value; }));
+				return opts.serializeRow(row.map(function(c) {
+					return c.isValid() ? c.value : null;
+				}), row);
 			});
 			console.log(data);
 			return data;
 		}
 	};
-
-	function _importData(model, ary) {
-		var columnTypes = model.columnTypes;
-		return ary.forEach(function(row) {
-			row = row.map(function(value, columnIx) {
-				return (value instanceof Cell)
-					? value
-					: new Cell(columnTypes[columnIx], value);
-			});
-			model.addRow(row);
-		});
-	}
 
 	function _createRowEditor(row) {
 		var editors = row.map(function(cell, ix) {

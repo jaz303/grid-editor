@@ -27,7 +27,7 @@ window.init = function() {
 			'string',
 			'string'
 		],
-		serializeRow: function(cells, values) {
+		serializeRow: function(values, cells) {
 			return {
 				point: { x: values[0], y: values[1] },
 				tradeName: values[2],

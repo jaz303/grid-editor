@@ -1,6 +1,6 @@
 module.exports = Model;
 
-var INVALID = {};
+var INVALID = require('./constants').INVALID;
 
 function textEditorForCell(cell, reprToValue, valueToRepr) {
 	var el = document.createElement('input');
@@ -64,9 +64,16 @@ function Range(model, startColumn, startRow, endColumn, endRow) {
 	this.endRow = endRow;
 }
 
-function Model(columnTypes, data) {
+function Model(columnTypes, opts) {
+	opts = opts || {};
 	this.columnTypes = columnTypes.map(type);
-	this.data = data || [];
+	if (opts.cells) {
+		this.data = opts.cells;
+	} else if (opts.data) {
+		this.data = opts.data.map(function(row) {
+			return this._castRow(row);
+		}, this);
+	}
 	this.events = new EventBox();
 }
 
@@ -78,21 +85,33 @@ Object.defineProperty(Model.prototype, 'height', {
 	get: function() { return this.data.length; }
 });
 
+Model.prototype.forEachRowValues = function(cb) {
+	this.data.forEach(function(row, ix) {
+		cb(row.map(function(cell) { return cell.value; }, ix));
+	});
+}
+
 Model.prototype.forEachRow = function(cb) {
-	this.data.forEach(cb);
+	this.data.forEach(function(row, ix) {
+		cb(row, ix);
+	});
+}
+
+Model.prototype.mapRowValues = function(cb) {
+	return this.data.map(function(row, ix) {
+		return cb(row.map(function(c) { return c.value; }), ix);
+	});
 }
 
 Model.prototype.mapRows = function(cb) {
 	return this.data.map(function(row, ix) {
-		return cb(row.map(function(c) {
-			return c.value;
-		}), ix);
+		return cb(row, ix);
 	});
 }
 
 Model.prototype.addRow = function(row) {
 	var ix = this.height;
-	var newRow = row || this._createRow();
+	var newRow = row ? this._castRow() : this._createRow();
 	this.data.push(newRow);
 	this.events.emit('change:append', this.rowRange(ix, ix+1), [newRow]);
 }
@@ -114,4 +133,16 @@ Model.prototype._createRow = function() {
 		row.push(new Cell(this.columnTypes[i], this.columnTypes[i].defaultValue()));
 	}
 	return row;
+}
+
+Model.prototype._castRow = function(ary) {
+	return ary.map(function(item, ix) {
+		return (item instanceof Cell)
+			? item
+			: new Cell(this._typeForColumn(ix), item);
+	}, this);
+}
+
+Model.prototype._typeForColumn = function(ix) {
+	return this.columnTypes[ix];
 }
