@@ -1,4 +1,78 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/Users/jason/dev/projects/grid-editor/demo/main.js":[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/Users/jason/dev/projects/grid-editor/Cell.js":[function(require,module,exports){
+module.exports = Cell;
+
+function Cell(type, initialValue) {
+	this.type = type;
+	this.value = initialValue;
+}
+
+Cell.prototype.createEditor = function() {
+	var editor = this.type.createEditor(this);
+	editor.set(this.value);
+	return editor;
+}
+},{}],"/Users/jason/dev/projects/grid-editor/Model.js":[function(require,module,exports){
+module.exports = Model;
+
+var EventBox = require('event-box');
+var Cell = require('./Cell');
+
+function Range(model, startColumn, startRow, endColumn, endRow) {
+	this.model = model;
+	this.startColumn = startColumn;
+	this.startRow = startRow;
+	this.endColumn = endColumn;
+	this.endRow = endRow;
+}
+
+function Model(columnTypes, data) {
+	this.columnTypes = columnTypes;
+	this.data = data;
+	this.events = new EventBox();
+}
+
+Object.defineProperty(Model.prototype, 'width', {
+	get: function() { return this.columnTypes.length; }
+});
+
+Object.defineProperty(Model.prototype, 'height', {
+	get: function() { return this.data.length; }
+});
+
+Model.prototype.forEachRow = function(cb) {
+	this.data.forEach(cb);
+}
+
+Model.prototype.mapRows = function(cb) {
+	return this.data.map(cb);
+}
+
+Model.prototype.addRow = function() {
+	var ix = this.height;
+	var newRow = this._createRow();
+	this.data.push(newRow);
+	this.events.emit('change:append', this.rowRange(ix, ix+1), [newRow]);
+}
+
+Model.prototype.deleteRowAtIndex = function(ix) {
+	if (ix < 0 || ix >= this.height) return;
+	var victim = this.data[ix];
+	this.data.splice(ix, 1);
+	this.events.emit('change:remove', this.rowRange(ix, ix+1), [victim]);
+}
+
+Model.prototype.rowRange = function(startRow, endRow) {
+	return new Range(this, 0, startRow, Infinity, endRow);
+}
+
+Model.prototype._createRow = function() {
+	var row = [];
+	for (var i = 0, w = this.width; i < w; ++i) {
+		row.push(new Cell(this.columnTypes[i], this.columnTypes[i].defaultValue()));
+	}
+	return row;
+}
+},{"./Cell":"/Users/jason/dev/projects/grid-editor/Cell.js","event-box":"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js"}],"/Users/jason/dev/projects/grid-editor/demo/main.js":[function(require,module,exports){
 var gridEditor = require('..');
 
 window.init = function() {
@@ -59,8 +133,10 @@ window.init = function() {
 module.exports = gridEditor;
 
 var D = require('dom-build');
-var EventBox = require('event-box');
 var ev = require('dom-bind');
+
+var Model = require('./Model');
+var Cell = require('./Cell');
 
 var INVALID = {};
 
@@ -114,85 +190,6 @@ var types = {
 function type(t) {
 	return (typeof t === 'string') ? types[t] : t;
 }
-
-//
-//
-
-function Cell(type, initialValue) {
-	this.type = type;
-	this.value = initialValue;
-}
-
-Cell.prototype.createEditor = function() {
-	var editor = this.type.createEditor(this);
-	editor.set(this.value);
-	return editor;
-}
-
-//
-//
-
-function Range(model, startColumn, startRow, endColumn, endRow) {
-	this.model = model;
-	this.startColumn = startColumn;
-	this.startRow = startRow;
-	this.endColumn = endColumn;
-	this.endRow = endRow;
-}
-
-//
-//
-
-function Model(columnTypes, data) {
-	this.columnTypes = columnTypes;
-	this.data = data;
-	this.events = new EventBox();
-}
-
-Object.defineProperty(Model.prototype, 'width', {
-	get: function() { return this.columnTypes.length; }
-});
-
-Object.defineProperty(Model.prototype, 'height', {
-	get: function() { return this.data.length; }
-});
-
-Model.prototype.forEachRow = function(cb) {
-	this.data.forEach(cb);
-}
-
-Model.prototype.mapRows = function(cb) {
-	return this.data.map(cb);
-}
-
-Model.prototype.addRow = function() {
-	var ix = this.height;
-	var newRow = this._createRow();
-	this.data.push(newRow);
-	this.events.emit('change:append', this.rowRange(ix, ix+1), [newRow]);
-}
-
-Model.prototype.deleteRowAtIndex = function(ix) {
-	if (ix < 0 || ix >= this.height) return;
-	var victim = this.data[ix];
-	this.data.splice(ix, 1);
-	this.events.emit('change:remove', this.rowRange(ix, ix+1), [victim]);
-}
-
-Model.prototype.rowRange = function(startRow, endRow) {
-	return new Range(this, 0, startRow, Infinity, endRow);
-}
-
-Model.prototype._createRow = function() {
-	var row = [];
-	for (var i = 0, w = this.width; i < w; ++i) {
-		row.push(new Cell(this.columnTypes[i], this.columnTypes[i].defaultValue()));
-	}
-	return row;
-}
-
-//
-//
 
 function gridEditor(opts) {
 
@@ -284,7 +281,7 @@ function gridEditor(opts) {
 		ui.body.appendChild(_createRowEditor(row));
 	}
 }
-},{"dom-bind":"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js","dom-build":"/Users/jason/dev/projects/grid-editor/node_modules/dom-build/index.js","event-box":"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js":[function(require,module,exports){
+},{"./Cell":"/Users/jason/dev/projects/grid-editor/Cell.js","./Model":"/Users/jason/dev/projects/grid-editor/Model.js","dom-bind":"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js","dom-build":"/Users/jason/dev/projects/grid-editor/node_modules/dom-build/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js":[function(require,module,exports){
 var matches = require('dom-matchesselector');
 
 var bind = null, unbind = null;
@@ -528,7 +525,9 @@ function createElement(state, tag) {
 }
 },{"dom-bind":"/Users/jason/dev/projects/grid-editor/node_modules/dom-build/node_modules/dom-bind/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/dom-build/node_modules/dom-bind/index.js":[function(require,module,exports){
 module.exports=require("/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js")
-},{"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js":"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js":[function(require,module,exports){
+},{"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js":"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/dom-build/node_modules/dom-bind/node_modules/dom-matchesselector/index.js":[function(require,module,exports){
+module.exports=require("/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/node_modules/dom-matchesselector/index.js")
+},{"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/node_modules/dom-matchesselector/index.js":"/Users/jason/dev/projects/grid-editor/node_modules/dom-bind/node_modules/dom-matchesselector/index.js"}],"/Users/jason/dev/projects/grid-editor/node_modules/event-box/index.js":[function(require,module,exports){
 module.exports = EventBox;
 
 var slice = Array.prototype.slice;
