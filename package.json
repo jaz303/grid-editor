@@ -1,6 +1,6 @@
 {
   "name": "grid-editor",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A grid editor for tabular data. Minimal dependencies.",
   "main": "index.js",
   "dependencies": {
